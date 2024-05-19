@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "url-shortener"
+version = "0.1.0"
+description = ""
+authors = ["Daniel Anugerah <danielangrh@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+flask = "^3.0.3"
+lmdbm = "^0.0.6"
+environs = "^11.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
