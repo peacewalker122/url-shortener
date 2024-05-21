@@ -19,4 +19,4 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/url-shortener:$(date +%s)
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/url-shortener:latest
