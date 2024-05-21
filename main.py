@@ -1,11 +1,13 @@
-from flask import jsonify, request
+import time
+from flask import jsonify, request, g
+import structlog
 from config import app, base62_encode, generate_big_int
 from err import InvalidAPIUsage
 from db import Database
 from contextlib import closing
-import logging
 
 db = Database(filename="test.db")
+log = structlog.get_logger()
 
 
 @app.route("/")
@@ -48,12 +50,14 @@ def invalid_api_usage(e):
 
 @app.before_request
 def before_request():
-    logging.debug(f"Request: {request.method} {request.path}")
+    g.start_time = time.time()
+    log.debug("request", method=request.method, path=request.path)
 
 
 @app.after_request
 def after_request(response):
-    logging.debug(f"Response: {response.status_code} {response.headers}")
+    latency = (time.time() - g.start_time) * 1000
+    log.debug("response", status_code=str(response.status_code), latency=f"{latency}ms")
     return response
 
 

@@ -1,5 +1,4 @@
 import sqlite3
-from flask import g
 
 
 class Database:
