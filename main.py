@@ -5,9 +5,11 @@ from config import app, base62_encode, generate_big_int
 from err import InvalidAPIUsage
 from db import Database
 from contextlib import closing
+from cachetools import LRUCache, cached
 
 db = Database(filename="test.db")
 log = structlog.get_logger()
+cache = LRUCache(maxsize=1000)
 
 
 @app.route("/")
@@ -15,6 +17,7 @@ def hello():
     return "<p>Hello, World!</p>", 200
 
 
+@cached(cache)
 @app.route("/shorten/<key>", methods=["GET"])
 def get(key):
     with closing(db.get_conn()) as cur:
