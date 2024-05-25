@@ -3,7 +3,7 @@ import structlog
 import random
 import unittest
 from environs import Env
-from flask import Flask
+from fastapi import FastAPI
 
 structlog.configure(
     processors=[
@@ -23,11 +23,9 @@ structlog.configure(
 
 env = Env()
 env.read_env()
-app = Flask(__name__)
 
-app.config["ENV"] = env("FLASK_ENV")
-app.config["DEBUG"] = env("DEBUG") == "1"
-# app.config["SECRET_KEY"] = env("SECRET_KEY")
+# NOTE: settings configuration: https://fastapi.tiangolo.com/advanced/settings
+app = FastAPI()
 
 
 def base62_encode(val: int):

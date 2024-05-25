@@ -28,4 +28,4 @@ WORKDIR /app
 EXPOSE 8000
 # CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]
 
-CMD granian --interface wsgi main:app --host 0.0.0.0 --port 8000 --workers 4 --threading-mode workers --http auto --log --log-level debug
+CMD granian --interface wsgi main:app --host 0.0.0.0 --port 8000 --workers 4 --threading-mode workers --http auto --log --log-level critical

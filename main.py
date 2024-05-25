@@ -1,68 +1,95 @@
 import time
-from flask import jsonify, request, g
-import structlog
-from config import app, base62_encode, generate_big_int
+from fastapi import Depends, FastAPI, Request, HTTPException, Response
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
+from config import base62_encode, generate_big_int
+from db import get_db
 from err import InvalidAPIUsage
-from db import Database
-from contextlib import closing
-from cachetools import LRUCache, cached
+import structlog
+import asyncio
 
-db = Database(filename="test.db")
+app = FastAPI()
 log = structlog.get_logger()
-cache = LRUCache(maxsize=1000)
+
+# CORS middleware for allowing cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-@app.route("/")
-def hello():
-    return "<p>Hello, World!</p>", 200
+# @app.on_event("startup")
+# async def startup(db: Session = Depends(get_db)):
+#     db.execute(
+#         text(
+#             "CREATE TABLE IF NOT EXISTS urls (id INTEGER PRIMARY KEY, long_url TEXT, short_url TEXT)"
+#         )
+#     )
 
 
-@cached(cache)
-@app.route("/shorten/<key>", methods=["GET"])
-def get(key):
-    with closing(db.get_conn()) as cur:
-        cur.execute("SELECT * FROM urls WHERE short_url = ?", (key,))
-        row = cur.fetchone()
-        if row is None:
-            raise InvalidAPIUsage("Key does not exist", status_code=400)
-        return {"url": row[1]}, 200
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    log.debug("request", method=request.method, path=request.url.path)
+    try:
+        response = await call_next(request)
+    except asyncio.CancelledError:
+        log.warning("request cancelled", method=request.method, path=request.url.path)
+        raise
+    process_time = (time.time() - start_time) * 1000
+    log.debug(
+        "response", status_code=response.status_code, latency=f"{process_time:.2f}ms"
+    )
+    return response
 
 
-@app.route("/shorten", methods=["POST"])
-def put():
-    json_req = request.get_json()
+@app.get("/shorten/{key}")
+async def get_url(key: str, db: Session = Depends(get_db)):
+    result = db.execute(
+        text("SELECT long_url FROM urls WHERE short_url = :key"),
+        {"key": key},
+    )
+    url = result.fetchone()
+    if url is None:
+        raise HTTPException(status_code=404, detail="URL not found")
+    return {"url": url[0]}
+
+
+@app.post("/shorten")
+async def create_short_url(request: Request, db: Session = Depends(get_db)):
+    json_req = await request.json()
     long_url = json_req.get("url")
     if long_url is None:
-        raise InvalidAPIUsage("Missing url parameter", status_code=400)
+        raise HTTPException(status_code=400, detail="Missing url parameter")
 
     id = generate_big_int()
     shorturl = base62_encode(id)
 
-    with closing(db.get_conn()) as cur:
-        cur.execute(
-            "INSERT INTO urls (id, long_url, short_url) VALUES (?, ?, ?)",
-            (id, long_url, shorturl),
-        )
-        return {"url": shorturl}, 200
+    db.execute(
+        text(
+            "INSERT INTO urls (id, long_url, short_url) VALUES (:id, :long_url, :short_url)"
+        ),
+        {"id": id, "long_url": long_url, "short_url": shorturl},
+    )
+    db.commit()
+
+    return {"url": shorturl}
 
 
-@app.errorhandler(InvalidAPIUsage)
-def invalid_api_usage(e):
-    return jsonify(e.to_dict()), e.status_code
-
-
-@app.before_request
-def before_request():
-    g.start_time = time.time()
-    log.debug("request", method=request.method, path=request.path)
-
-
-@app.after_request
-def after_request(response):
-    latency = (time.time() - g.start_time) * 1000
-    log.debug("response", status_code=str(response.status_code), latency=f"{latency}ms")
-    return response
+@app.exception_handler(InvalidAPIUsage)
+async def invalid_api_usage_handler(request: Request, exc: InvalidAPIUsage):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.to_dict(),
+    )
 
 
 if __name__ == "__main__":
-    app.run()
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
