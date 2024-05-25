@@ -28,7 +28,7 @@ CREATE TABLE urls (
 ## POST /shorten: Create a new shortened URL
 Must be capable of handling 1 million write requests per day or ~= 11 requests per second. 
   
-## GET /shorten/<key>: Resolve a shortened URL
+## GET /shorten/:key Resolve a shortened URL
 Must be capable of handling 10 million read requests per day or ~= 110 requests per second. This aproach only able on framework / language that support concurrency, on my previous attempt using Flask i havea really bad performance ~= 20rps for get Request. And i choose to rewrite it entirely using FastAPI which is able even into 200rps which is 17.28 million requests per day or 900% of Improvement.
 
 # Storage Requirements
