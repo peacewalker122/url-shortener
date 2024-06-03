@@ -6,15 +6,15 @@ This document outlines the design and architecture of a URL shortener system cap
 - Handle 10 million read requests (URL resolution) per day
 - Generate unique, base62-encoded identifiers for shortened URLs with a minimum length of 7 characters (62^7 = 3.5 trillion possible combinations)
 - Persistent storage for storing long URLs and their corresponding shortened URLs
-- Load balancing and rate limiting capabilities
 - For Simplicity user can't delete / update shortened URLs
-- Prevent API Abuse by utilize the load balancer feature
 
 # System Architecture
 ## High Level design
 ![Figure 1](./assets/urlshortener.png)
 
-# Database Design
+# Database
+
+## Table
 ```
 CREATE TABLE urls (
     id bigint PRIMARY KEY AUTOINCREMENT,
