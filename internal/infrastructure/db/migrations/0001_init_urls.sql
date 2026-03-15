@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS urls (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    long_url TEXT NOT NULL,
+    short_url TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

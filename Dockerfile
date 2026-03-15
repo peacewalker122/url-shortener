@@ -1,31 +1,19 @@
-FROM python:3.10 as builder
+FROM golang:1.26 AS builder
 
-# Install poetry
-RUN pip install poetry
-RUN mkdir -p /app
-
-ENV POETRY_NO_INTERACTION=1 \
-  POETRY_VIRTUALENVS_IN_PROJECT=1 \
-  POETRY_VIRTUALENVS_CREATE=1 \
-  POETRY_CACHE_DIR=/tmp/poetry_cache
-
-COPY . /app
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 
-RUN poetry install --no-root && rm -rf $POETRY_CACHE_DIR
+COPY cmd ./cmd
+COPY internal ./internal
 
-FROM python:3.10-slim-buster as runtime
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/bin/server ./cmd/server
 
-ENV VIRTUAL_ENV=/app/.venv \
-  PATH="/app/.venv/bin:$PATH"
-COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+FROM gcr.io/distroless/static-debian12
 
-# RUN pip install --no-cache-dir psycopg2-binary
-
-COPY --from=builder /app /app
 WORKDIR /app
+COPY --from=builder /app/bin/server /app/server
 
 EXPOSE 8000
-# CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]
 
-CMD granian --interface asgi main:app --host 0.0.0.0 --port 8000 --workers 4 --threading-mode workers --http auto --log --log-level debug
+CMD ["/app/server"]
